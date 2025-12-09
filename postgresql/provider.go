@@ -79,8 +79,9 @@ func Provider() *schema.Provider {
 			},
 
 			"aws_rds_endpoint": {
-				Type:     schema.TypeBool,
+				Type:     schema.TypeString,
 				Optional: true,
+				Default:  "",
 				Description: "Use this endpoint instead of the host when generating the authentication token. " +
 					"This is useful when using a different hostname for connection to connect through a proxy or VPN.",
 			},
