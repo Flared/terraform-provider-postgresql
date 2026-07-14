@@ -116,6 +116,20 @@ func resourcePostgreSQLUserMappingReadImpl(db *DBConnection, d *schema.ResourceD
 	err = txn.QueryRow(query, username, serverName).Scan(pq.Array(&userMappingOptions))
 
 	if err != sql.ErrNoRows && err != nil {
+		// A failed statement leaves the transaction aborted; every subsequent
+		// statement on it would fail with "current transaction is aborted,
+		// commands ignored until end of transaction block". Roll back and
+		// start a fresh transaction before attempting the fallback query.
+		if rbErr := txn.Rollback(); rbErr != nil {
+			return fmt.Errorf("error rolling back transaction: %w", rbErr)
+		}
+
+		txn, err = startTransaction(db.client, "")
+		if err != nil {
+			return err
+		}
+		defer deferredRollback(txn)
+
 		// Fallback to pg_user_mappings table if information_schema._pg_user_mappings is not available
 		query := "SELECT umoptions FROM pg_user_mappings WHERE usename = $1 and srvname = $2"
 		err = txn.QueryRow(query, username, serverName).Scan(pq.Array(&userMappingOptions))
